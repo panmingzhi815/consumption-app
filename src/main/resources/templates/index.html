@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>请刷卡扣费</title>
+    <link rel="stylesheet" type="text/css" th:href="@{/jquery-easyui/themes/default/easyui.css}"/>
+    <link rel="stylesheet" type="text/css" th:href="@{/jquery-easyui/themes/mobile.css}"/>
+    <link rel="stylesheet" type="text/css" th:href="@{/jquery-easyui/themes/icon.css}"/>
+    <script type="text/javascript" th:src="@{/jquery-easyui/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui/jquery.easyui.mobile.js}"></script>
+
+    <script type="text/javascript" th:src="@{/js/my-js.js}"></script>
+
+    <script>
+        function init() {
+            api.addEvent("keyBack","keyBackPrecess");
+        }
+
+        var backSecond=0;
+        function keyBackPrecess(){
+            var curSecond = Date.parse(new Date());
+            console.log("curSecond - backSecond:" + (curSecond - backSecond))
+            if(Math.abs(curSecond - backSecond) > 2000) {
+                backSecond = curSecond;
+                api.toast('再次点击退出');
+            } else {
+                api.closeWidget();
+            }
+        }
+
+        function back_login() {
+            $.messager.defaults = { ok: "　是　", cancel: "　否　" };
+            $.messager.confirm("确认","您确认要退出登录吗?",function (data) {
+                if(data){
+                    window.location = "/app/login";
+                }
+            })
+        }
+
+        function nfcRead(cardId) {
+            post("/request/findConsumptionUser",{"cardId":cardId,"deviceId":"000000"},function (data) {
+                loadForm(data);
+                $("#consumptionMsg").html("读卡成功");
+                $('#consumption').linkbutton('enable');
+                openInput();
+            });
+        }
+        
+        function openInput() {
+            setTimeout(function () {
+                $("#money").trigger("focus");
+            },1000)
+        }
+
+        function consumption() {
+            var cardId = $("#cardId").textbox("getValue");
+            var money = $("#money").textbox("getValue");
+            var orderId = $("#orderId").val();
+
+            if(money === ''){
+                api.toast('请输入扣费金额！');
+                return;
+            }
+
+            post("/request/consumption",{"cardId":cardId,"deviceId":"000000","money":money,"orderId":orderId},function (data) {
+                $("#consumptionMsg").html("消费成功");
+                post("/request/findConsumptionUser",{"cardId":cardId,"deviceId":"000000"},function (data) {
+                    loadForm(data);
+                });
+                $('#consumption').linkbutton('disable');
+            });
+        }
+
+        function loadForm(data){
+            $("#userId").textbox("setValue", data.msg.userId);
+            $("#userName").textbox("setValue", data.msg.userName);
+            $("#cardId").textbox("setValue", data.msg.cardId);
+            $("#leftChong").textbox("setValue", data.msg.leftChong);
+            $("#leftBuzhu").textbox("setValue", data.msg.leftBuzhu);
+            $("#money").textbox("setValue", "");
+            $("#orderId").val(data.msg.orderId);
+        }
+        
+        function refreshRecord() {
+            $('#dg').datagrid({
+                loader:function(param,success,error){
+                    post("/request/recordList",param,function (data) {
+                        success(data.msg);
+                    });
+                }
+            });
+        }
+    </script>
+
+</head>
+
+<body>
+
+<div id="index" class="easyui-navpanel" style="position:relative;padding:20px">
+    <header>
+        <div class="m-toolbar">
+            <div class="m-left">
+                <a onclick="back_login()" class="easyui-linkbutton" plain="true" outline="true" style="width:100px">返回登录</a>
+            </div>
+            <div class="m-title">请刷卡扣费</div>
+            <div class="m-right">
+                <a href="#record" onclick="refreshRecord()" class="easyui-linkbutton" plain="true" outline="true" style="width:100px">消费记录</a>
+            </div>
+        </div>
+    </header>
+    <form id="ff">
+        <input type="hidden" id="orderId"/>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="userId" label="用户编号：" data-options="readonly:true" style="width: 100%"/>
+        </div>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="userName" label="用户姓名：" data-options="readonly:true" style="width: 100%"/>
+        </div>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="cardId" label="卡片内码：" data-options="readonly:true" style="width: 100%"/>
+        </div>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="leftChong" label="充值剩余：" data-options="readonly:true" style="width: 100%"/>
+        </div>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="leftBuzhu" label="补助剩余：" data-options="readonly:true" style="width: 100%"/>
+        </div>
+        <div style="margin-bottom:10px">
+            <input class="easyui-textbox" id="money" label="当前消费：" style="width: 100%;ime-mode: active" type="number"/>
+        </div>
+
+        <div style="text-align:center;margin-top:30px">
+            <a id="consumption" onclick="consumption()" onfocus="openInput()" class="easyui-linkbutton" style="width:100%;height:40px"><span style="font-size:16px">确认消费</span></a>
+        </div>
+    </form>
+
+    <h1 id="consumptionMsg" style="text-align: center">请刷卡</h1>
+</div>
+
+<div id="record" class="easyui-navpanel">
+    <header>
+        <div class="m-toolbar">
+            <div class="m-left">
+                <a href="#index" class="easyui-linkbutton" plain="true" outline="true" style="width:100px">返回消费</a>
+            </div>
+            <span class="m-title">消费记录</span>
+            <div class="m-right">
+                <a onclick="refreshRecord()" class="easyui-linkbutton" plain="true" outline="true" style="width:100px">重新加载</a>
+            </div>
+        </div>
+    </header>
+    <table class="easyui-datagrid" id="dg" data-options="singleSelect:true,border:false,fit:true,fitColumns:true,scrollbarSize:0">
+        <thead>
+        <tr>
+            <th data-options="field:'userId',width:60">用户编号</th>
+            <th data-options="field:'userName',width:60">用户姓名</th>
+            <th data-options="field:'money',width:60">消费金额</th>
+            <th data-options="field:'time',width:100">消费时间</th>
+        </tr>
+        </thead>
+    </table>
+</div>
+</body>
+</html>
